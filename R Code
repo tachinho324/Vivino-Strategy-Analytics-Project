@@ -1,0 +1,59 @@
+setwd("C:/Users/Smush/Desktop")
+vivino.df <- read.csv("vivino.csv")
+
+# Data Exploration
+dim(vivino.df)
+str(vivino.df)
+summary(vivino.df)
+library(corrplot)
+corrplot(cor(vivino.df), method = "circle")
+vivino.df$qualityLabel <- as.factor(ifelse(vivino.df$quality > 6, 1, 0))
+
+# Splitting Data
+set.seed(04625)
+train.prop <- 0.65
+train.cases <- sample(nrow(vivino.df), nrow(vivino.df) * train.prop)
+vivino.df.train <- vivino.df[train.cases, ]
+vivino.df.test <- vivino.df[-train.cases, ]
+
+# Naive Bayes Model
+library(e1071)
+vivino.nb <- naiveBayes(qualityLabel ~ ., data = vivino.df.train)
+vivino.nb.class <- predict(vivino.nb, vivino.df.test)
+prop.table(table(vivino.nb.class))
+
+# Clustering and Evaluation
+library(cluster)
+clusplot(vivino.df.test, vivino.nb.class, color = TRUE, shade = TRUE, labels = 4, main = "Naive Bayes Classification")
+
+library(mclust)
+mean(vivino.df.test$qualityLabel == vivino.nb.class)
+adjustedRandIndex(vivino.nb.class, vivino.df.test$qualityLabel)
+
+# Confusion Matrix
+table(vivino.nb.class, vivino.df.test$qualityLabel)
+
+# Random Forest Model
+library(randomForest)
+set.seed(98040)
+vivino.rf <- randomForest(qualityLabel ~ ., data = vivino.df.train, ntree = 3000)
+vivino.rf.class <- predict(vivino.rf, vivino.df.test)
+
+# Clustering and Evaluation
+clusplot(vivino.df.test, vivino.rf.class, color = TRUE, shade = TRUE, labels = 4, main = "Random Forest Classification")
+mean(vivino.df.test$qualityLabel == vivino.rf.class)
+adjustedRandIndex(vivino.df.test$qualityLabel, vivino.rf.class)
+
+# Confusion Matrix
+table(vivino.df.test$qualityLabel, vivino.rf.class)
+
+# Variable Importance
+tree.imp <- randomForest(qualityLabel ~ ., data = vivino.df.train, ntree = 3000, importance = TRUE)
+importance(tree.imp)
+varImpPlot(tree.imp, main = "Variable Importance")
+
+# Heatmap
+library(gplots)
+library(RColorBrewer)
+heatmap.2(t(importance(tree.imp)[, 1:2]), col = brewer.pal(5, "Reds"), trace = "none", key = FALSE, dend = "none", 
+          cexCol = 1.3, cexRow = 1.3, offsetRow = 0.3, offsetCol = 0.3, main = "\n\n\n Variable Importance for Category")
